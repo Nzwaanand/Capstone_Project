@@ -5,7 +5,6 @@ import whisper
 import torch
 import re
 import time
-import ffmpeg
 import gc
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import PeftModel
