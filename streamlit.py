@@ -49,11 +49,11 @@ def clear_gpu():
         pass
 
 # -----------------------
-# CACHED LOADER (Whisper only - small for lower VRAM)
+# CACHED LOADER (Whisper - medium)
 # -----------------------
 @st.cache_resource
 def load_whisper():
-    # Using 'small' to reduce VRAM usage on Colab
+    # Using 'medium' to reduce VRAM usage on Colab
     return whisper.load_model("medium")
 
 # -----------------------
@@ -200,7 +200,7 @@ if st.session_state.page == "input":
 
             # Load whisper
             step1 = st.empty()
-            step1.info("⏳ Loading Whisper (small)...")
+            step1.info("⏳ Loading Whisper (medium)...")
             try:
                 whisper_model = load_whisper()
                 st.session_state.progress["load_whisper"] = True
