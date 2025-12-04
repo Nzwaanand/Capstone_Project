@@ -10,8 +10,8 @@ import time
 # -----------------------
 st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
-HF_API_URL = st.secrets["HF_API_URL"]
-HF_TOKEN = st.secrets["HF_TOKEN"]
+OPENAI_KEY = st.secrets["OPENAI_KEY"]
+MISTRAL_API_KEY = st.secrets["MISTRAL_API_KEY"]
 OPENAI_KEY = st.secrets["OPENAI_KEY"]
 
 INTERVIEW_QUESTIONS = [
