@@ -12,7 +12,6 @@ st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
 OPENAI_KEY = st.secrets["OPENAI_KEY"]
 MISTRAL_API_KEY = st.secrets["MISTRAL_API_KEY"]
-OPENAI_KEY = st.secrets["OPENAI_KEY"]
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
@@ -48,41 +47,36 @@ def whisper_api_transcribe(video_path):
     if response.status_code != 200:
         return f"ERROR Whisper: {response.text}"
 
-    return response.json()["text"]
+    return response.json().get("text", "")
 
 
-def mistral_lora_api(prompt):
-    """Send classification prompt to HuggingFace LoRA Endpoint."""
+def mistral_api_classify(prompt):
+    """Send classification prompt to Mistral official API."""
+    url = "https://api.mistral.ai/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {HF_TOKEN}",
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    payload = {
-        "inputs": prompt,
-        "parameters": {"max_new_tokens": 150}
+    body = {
+        "model": "mistral-large-latest",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 200,
+        "temperature": 0.0
     }
 
-    response = requests.post(HF_API_URL, json=payload, headers=headers)
+    response = requests.post(url, headers=headers, json=body)
 
-    try:
-        result = response.json()
-    except Exception:
-        return "ERROR: Bad JSON response"
+    if response.status_code != 200:
+        return f"ERROR Mistral: {response.text}"
 
-    # HF inference API returns list sometimes
-    if isinstance(result, list):
-        return result[0]["generated_text"]
-
-    if "generated_text" in result:
-        return result["generated_text"]
-
-    return str(result)
+    return response.json()["choices"][0]["message"]["content"]
 
 
 # -----------------------
 # HELPERS
 # -----------------------
+
 def prompt_for_classification(question, answer):
     return (
         "Anda adalah penilai HRD. Klasifikasikan jawaban kandidat dengan skala 0-5.\n\n"
@@ -108,8 +102,10 @@ def parse_model_output(text):
 # -----------------------
 # SESSION STATE
 # -----------------------
+
 if "page" not in st.session_state:
     st.session_state.page = "input"
+
 if "results" not in st.session_state:
     st.session_state.results = []
 
@@ -117,6 +113,7 @@ if "results" not in st.session_state:
 # -----------------------
 # INPUT PAGE
 # -----------------------
+
 st.title("🎥 AI-Powered Interview Assessment System")
 
 if st.session_state.page == "input":
@@ -153,16 +150,12 @@ if st.session_state.page == "input":
             tmp.close()
             video_path = tmp.name
 
-            # 1 → TRANSCRIBE (WHISPER API)
-            try:
-                transcript = whisper_api_transcribe(video_path)
-            except Exception as e:
-                transcript = ""
-                progress.error(f"❌ Error Whisper Video {idx+1}: {e}")
+            # Step 1 → TRANSCRIBE via Whisper API
+            transcript = whisper_api_transcribe(video_path)
 
-            # 2 → CLASSIFY (MISTRAL LORA API)
+            # Step 2 → CLASSIFY via Mistral API
             prompt = prompt_for_classification(INTERVIEW_QUESTIONS[idx], transcript)
-            raw_output = mistral_lora_api(prompt)
+            raw_output = mistral_api_classify(prompt)
             score, reason = parse_model_output(raw_output)
 
             st.session_state.results.append({
@@ -185,15 +178,16 @@ if st.session_state.page == "input":
         st.rerun()
 
 
-
 # -----------------------
 # RESULT PAGE
 # -----------------------
+
 if st.session_state.page == "result":
     st.title("📋 Hasil Penilaian Interview")
     st.subheader(f"Nama Pelamar: {nama}")
 
     scores = [r["score"] for r in st.session_state.results if r["score"] is not None]
+
     if len(scores) == 5:
         overall = sum(scores) / 5
         st.markdown(f"### Skor Akhir: **{overall:.2f} / 5**")
@@ -211,7 +205,6 @@ if st.session_state.page == "result":
         st.write(f"**Alasan:** {r['reason']}")
         with st.expander("Raw Output Model"):
             st.code(r["raw_model"])
-
         st.markdown("---")
 
     if st.button("Kembali ke Halaman Input"):
