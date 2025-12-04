@@ -4,3 +4,4 @@ mistralai
 ffmpeg-python
 openai-whisper
 requests
+moviepy>=1.0.3
