@@ -41,10 +41,6 @@ whisper_pipe = load_whisper_pipeline()
 # -----------------------
 # FUNCTIONS
 # -----------------------
-def load_whisper_pipeline():
-    return pipeline(model="NbAiLab/nb-whisper-medium", task="automatic-speech-recognition")
-
-whisper_pipe = load_whisper_pipeline()
 
 def whisper_transcribe(video_path):
     """Transkripsi video langsung pakai pipeline HuggingFace"""
