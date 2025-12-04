@@ -2,7 +2,7 @@ import streamlit as st
 import tempfile
 import os
 import re
-import whisper
+from transformers import pipeline
 
 # -----------------------
 # CONFIG
@@ -31,20 +31,20 @@ CRITERIA_TEXT = (
 )
 
 # -----------------------
-# LOAD WHISPER SMALL SEKALI
+# LOAD WHISPER HF PIPELINE SEKALI
 # -----------------------
 @st.cache_resource(show_spinner=True)
-def load_whisper_model():
-    return whisper.load_model("small")
+def load_whisper_pipeline():
+    return pipeline(model="NbAiLab/nb-whisper-medium", task="automatic-speech-recognition")
 
-whisper_model = load_whisper_model()
+whisper_pipe = load_whisper_pipeline()
 
 # -----------------------
 # FUNCTIONS
 # -----------------------
-def whisper_local_transcribe(video_path):
-    """Transcribe audio/video using local Whisper."""
-    result = whisper_model.transcribe(video_path)
+def whisper_transcribe(video_path):
+    """Transcribe video langsung pakai HF Whisper pipeline"""
+    result = whisper_pipe(video_path)
     return result["text"]
 
 def mistral_lora_api(prompt):
@@ -56,15 +56,12 @@ def mistral_lora_api(prompt):
     }
     payload = {"inputs": prompt, "parameters": {"max_new_tokens": 200}}
     response = requests.post(HF_API_URL, json=payload, headers=headers)
-
     try:
         result = response.json()
     except:
         return "ERROR: Response tidak bisa dibaca."
-
     if isinstance(result, list):
         return result[0].get("generated_text", "")
-
     return result.get("generated_text", str(result))
 
 def prompt_for_classification(question, answer):
@@ -128,13 +125,13 @@ if st.session_state.page == "input":
         for idx, vid in enumerate(uploaded):
             progress.info(f"Memproses Video {idx+1}...")
 
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-            tmp.write(vid.read())
-            tmp.close()
-            video_path = tmp.name
+            tmp_video = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+            tmp_video.write(vid.read())
+            tmp_video.close()
+            video_path = tmp_video.name
 
-            # Transkripsi pakai Whisper lokal small
-            transcript = whisper_local_transcribe(video_path)
+            # Transkripsi langsung video
+            transcript = whisper_transcribe(video_path)
 
             prompt = prompt_for_classification(INTERVIEW_QUESTIONS[idx], transcript)
             raw_output = mistral_lora_api(prompt)
