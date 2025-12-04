@@ -36,7 +36,7 @@ CRITERIA_TEXT = (
 # -----------------------
 @st.cache_resource(show_spinner=True)
 def load_whisper_model():
-    return whisper.load_model("medium")
+    return whisper.load_model("medium")  # Bisa diganti "small" atau "base" untuk lebih ringan
 
 whisper_model = load_whisper_model()
 
@@ -44,27 +44,28 @@ whisper_model = load_whisper_model()
 # FUNCTIONS
 # -----------------------
 def whisper_local_transcribe(video_path):
-    """Transcribe audio/video using local Whisper."""
-    result = whisper_model.transcribe(video_path)
-    return result["text"]
+    """Transcribe audio/video menggunakan local Whisper dengan error handling."""
+    try:
+        result = whisper_model.transcribe(video_path)
+        return result.get("text", "")
+    except Exception as e:
+        return f"ERROR transkripsi: {e}"
 
 def mistral_lora_api(prompt):
-    """Call fine-tuned Mistral model on HuggingFace Inference API."""
-    headers = {
-        "Authorization": f"Bearer {HF_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 200}}
-    response = requests.post(HF_API_URL, json=payload, headers=headers)
+    """Call fine-tuned Mistral model di HuggingFace Inference API."""
     try:
+        headers = {
+            "Authorization": f"Bearer {HF_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = {"inputs": prompt, "parameters": {"max_new_tokens": 200}}
+        response = requests.post(HF_API_URL, json=payload, headers=headers)
         result = response.json()
-    except:
-        return "ERROR: Response tidak bisa dibaca."
-
-    if isinstance(result, list):
-        return result[0].get("generated_text", "")
-
-    return result.get("generated_text", str(result))
+        if isinstance(result, list):
+            return result[0].get("generated_text", "")
+        return result.get("generated_text", str(result))
+    except Exception as e:
+        return f"ERROR API Mistral: {e}"
 
 # -----------------------
 # HELPERS
@@ -81,15 +82,13 @@ def prompt_for_classification(question, answer):
     )
 
 def parse_model_output(text):
-    """Extract score (0–5) and reason."""
+    """Extract score (0–5) dan alasan."""
     score = None
     score_match = re.search(r"\b([0-5])\b", text)
     if score_match:
         score = int(score_match.group(1))
-
     reason_match = re.search(r"(ALASAN|REASON)[:\-]\s*(.+)", text, re.IGNORECASE | re.DOTALL)
     reason = reason_match.group(2).strip() if reason_match else text
-
     return score, reason
 
 # -----------------------
@@ -128,17 +127,19 @@ if st.session_state.page == "input":
 
         st.session_state.nama = nama
         st.session_state.results = []
+
         progress = st.empty()
 
-        # PROCESS EACH VIDEO
         for idx, vid in enumerate(uploaded):
             progress.info(f"Memproses Video {idx+1}...")
+
+            # Simpan sementara
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
             tmp.write(vid.read())
             tmp.close()
             video_path = tmp.name
 
-            # Gunakan Whisper lokal
+            # Transkripsi dengan Whisper lokal
             transcript = whisper_local_transcribe(video_path)
 
             # Klasifikasi jawaban
@@ -146,7 +147,6 @@ if st.session_state.page == "input":
             raw_output = mistral_lora_api(prompt)
             score, reason = parse_model_output(raw_output)
 
-            # Simpan hasil
             st.session_state.results.append({
                 "question": INTERVIEW_QUESTIONS[idx],
                 "transcript": transcript,
@@ -159,7 +159,7 @@ if st.session_state.page == "input":
             progress.success(f"Video {idx+1} selesai ✔")
 
         st.session_state.page = "result"
-        st.rerun()
+        st.experimental_rerun()  # Hanya sekali panggil rerun
 
 # -----------------------
 # PAGE: RESULT
@@ -190,4 +190,4 @@ if st.session_state.page == "result":
         st.session_state.page = "input"
         st.session_state.results = []
         st.session_state.nama = ""
-        st.rerun()
+        st.experimental_rerun()
