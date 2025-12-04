@@ -102,7 +102,6 @@ if "results" not in st.session_state:
 if "nama" not in st.session_state:
     st.session_state.nama = ""
 
-
 # -----------------------
 # PAGE: INPUT
 # -----------------------
@@ -112,7 +111,11 @@ if st.session_state.page == "input":
 
     with st.form("input_form"):
         nama = st.text_input("Nama Pelamar")
-        uploaded = st.file_uploader("Upload 5 Video (1 → 5)", type=["mp4", "mov", "mkv", "webm"], accept_multiple_files=True)
+        uploaded = st.file_uploader(
+            "Upload 5 Video (1 → 5)", 
+            type=["mp4", "mov", "mkv", "webm"], 
+            accept_multiple_files=True
+        )
         submit = st.form_submit_button("Mulai Proses Analisis")
 
     if submit:
@@ -123,23 +126,20 @@ if st.session_state.page == "input":
             st.error("Harap upload tepat 5 video.")
             st.stop()
 
-        st.session_state.nama = nama  # simpan di session state
+        st.session_state.nama = nama
         st.session_state.results = []
-
         progress = st.empty()
 
         # PROCESS EACH VIDEO
         for idx, vid in enumerate(uploaded):
             progress.info(f"Memproses Video {idx+1}...")
-
-            # Simpan sementara
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
             tmp.write(vid.read())
             tmp.close()
             video_path = tmp.name
 
-            # Transkripsi
-            transcript = whisper_api_transcribe(video_path)
+            # Gunakan Whisper lokal
+            transcript = whisper_local_transcribe(video_path)
 
             # Klasifikasi jawaban
             prompt = prompt_for_classification(INTERVIEW_QUESTIONS[idx], transcript)
@@ -161,7 +161,6 @@ if st.session_state.page == "input":
         st.session_state.page = "result"
         st.rerun()
 
-
 # -----------------------
 # PAGE: RESULT
 # -----------------------
@@ -169,7 +168,6 @@ if st.session_state.page == "result":
     st.title("📋 Hasil Penilaian Interview")
     st.write(f"**Nama Pelamar:** {st.session_state.nama}")
 
-    # Hitung skor akhir
     valid_scores = [r["score"] for r in st.session_state.results if r["score"] is not None]
     if len(valid_scores) == 5:
         final_score = sum(valid_scores) / 5
@@ -178,8 +176,6 @@ if st.session_state.page == "result":
         st.error("Skor tidak lengkap.")
 
     st.markdown("---")
-
-    # Detail hasil tiap video
     for i, r in enumerate(st.session_state.results):
         st.subheader(f"🎬 Video {i+1}")
         st.write(f"**Pertanyaan:** {r['question']}")
