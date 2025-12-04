@@ -3,15 +3,15 @@ import tempfile
 import os
 import re
 import requests
+import whisper 
 
 # -----------------------
 # CONFIG
 # -----------------------
 st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
-HF_API_URL = "https://api-inference.huggingface.co/models/nndayoow/mistral-interview-lora"
+HF_API_URL = "https://router.huggingface.co/api/models/nndayoow/mistral-interview-lora"
 HF_TOKEN = st.secrets["HF_TOKEN"]
-OPENAI_KEY = st.secrets["OPENAI_KEY"]
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
@@ -32,23 +32,21 @@ CRITERIA_TEXT = (
 )
 
 # -----------------------
-# API FUNCTIONS
+# LOAD WHISPER MODEL SEKALI
 # -----------------------
-def whisper_api_transcribe(video_path):
-    """Transcribe audio/video using OpenAI Whisper API."""
-    url = "https://api.openai.com/v1/audio/transcriptions"
-    headers = {"Authorization": f"Bearer {OPENAI_KEY}"}
+@st.cache_resource(show_spinner=True)
+def load_whisper_model():
+    return whisper.load_model("medium") 
 
-    with open(video_path, "rb") as f:
-        files = {"file": f}
-        data = {"model": "whisper-1"}
-        response = requests.post(url, headers=headers, files=files, data=data)
+whisper_model = load_whisper_model()
 
-    if response.status_code != 200:
-        return f"ERROR Whisper: {response.text}"
-
-    return response.json().get("text", "")
-
+# -----------------------
+# FUNCTIONS
+# -----------------------
+def whisper_local_transcribe(video_path):
+    """Transcribe audio/video using local Whisper."""
+    result = whisper_model.transcribe(video_path)
+    return result["text"]
 
 def mistral_lora_api(prompt):
     """Call fine-tuned Mistral model on HuggingFace Inference API."""
@@ -58,7 +56,6 @@ def mistral_lora_api(prompt):
     }
     payload = {"inputs": prompt, "parameters": {"max_new_tokens": 200}}
     response = requests.post(HF_API_URL, json=payload, headers=headers)
-
     try:
         result = response.json()
     except:
@@ -68,7 +65,6 @@ def mistral_lora_api(prompt):
         return result[0].get("generated_text", "")
 
     return result.get("generated_text", str(result))
-
 
 # -----------------------
 # HELPERS
@@ -96,7 +92,6 @@ def parse_model_output(text):
     reason = reason_match.group(2).strip() if reason_match else text
 
     return score, reason
-
 
 # -----------------------
 # SESSION STATE INIT
