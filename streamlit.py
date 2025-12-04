@@ -3,7 +3,6 @@ import tempfile
 import os
 import re
 import requests
-import time
 
 # -----------------------
 # CONFIG
@@ -35,16 +34,15 @@ CRITERIA_TEXT = (
 # -----------------------
 # API FUNCTIONS
 # -----------------------
-
 def whisper_api_transcribe(video_path):
     """Transcribe audio/video using OpenAI Whisper API."""
-    url = "https://api.openai.com/v2/audio/transcriptions"
+    url = "https://api.openai.com/v1/audio/transcriptions"
     headers = {"Authorization": f"Bearer {OPENAI_KEY}"}
 
-    files = {"file": open(video_path, "rb")}
-    data = {"model": "whisper-1"}
-
-    response = requests.post(url, headers=headers, files=files, data=data)
+    with open(video_path, "rb") as f:
+        files = {"file": f}
+        data = {"model": "whisper-1"}
+        response = requests.post(url, headers=headers, files=files, data=data)
 
     if response.status_code != 200:
         return f"ERROR Whisper: {response.text}"
@@ -58,12 +56,7 @@ def mistral_lora_api(prompt):
         "Authorization": f"Bearer {HF_TOKEN}",
         "Content-Type": "application/json"
     }
-
-    payload = {
-        "inputs": prompt,
-        "parameters": {"max_new_tokens": 200}
-    }
-
+    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 200}}
     response = requests.post(HF_API_URL, json=payload, headers=headers)
 
     try:
@@ -80,7 +73,6 @@ def mistral_lora_api(prompt):
 # -----------------------
 # HELPERS
 # -----------------------
-
 def prompt_for_classification(question, answer):
     return (
         "Anda adalah HRD profesional. Nilailah jawaban kandidat dengan skala 0–5.\n\n"
@@ -96,7 +88,6 @@ def prompt_for_classification(question, answer):
 def parse_model_output(text):
     """Extract score (0–5) and reason."""
     score = None
-
     score_match = re.search(r"\b([0-5])\b", text)
     if score_match:
         score = int(score_match.group(1))
@@ -116,12 +107,14 @@ if "page" not in st.session_state:
 if "results" not in st.session_state:
     st.session_state.results = []
 
+if "nama" not in st.session_state:
+    st.session_state.nama = ""
+
 
 # -----------------------
 # PAGE: INPUT
 # -----------------------
 if st.session_state.page == "input":
-
     st.title("🎥 AI-Powered Interview Assessment System")
     st.write("Upload **5 video interview** lalu klik mulai analisis.")
 
@@ -131,15 +124,14 @@ if st.session_state.page == "input":
         submit = st.form_submit_button("Mulai Proses Analisis")
 
     if submit:
-
         if not nama:
             st.error("Nama pelamar wajib diisi.")
             st.stop()
-
         if not uploaded or len(uploaded) != 5:
             st.error("Harap upload tepat 5 video.")
             st.stop()
 
+        st.session_state.nama = nama  # simpan di session state
         st.session_state.results = []
 
         progress = st.empty()
@@ -152,7 +144,6 @@ if st.session_state.page == "input":
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
             tmp.write(vid.read())
             tmp.close()
-
             video_path = tmp.name
 
             # Transkripsi
@@ -173,7 +164,6 @@ if st.session_state.page == "input":
             })
 
             os.remove(video_path)
-
             progress.success(f"Video {idx+1} selesai ✔")
 
         st.session_state.page = "result"
@@ -185,7 +175,7 @@ if st.session_state.page == "input":
 # -----------------------
 if st.session_state.page == "result":
     st.title("📋 Hasil Penilaian Interview")
-    st.write(f"**Nama Pelamar:** {nama}")
+    st.write(f"**Nama Pelamar:** {st.session_state.nama}")
 
     # Hitung skor akhir
     valid_scores = [r["score"] for r in st.session_state.results if r["score"] is not None]
@@ -197,7 +187,7 @@ if st.session_state.page == "result":
 
     st.markdown("---")
 
-    # Detail
+    # Detail hasil tiap video
     for i, r in enumerate(st.session_state.results):
         st.subheader(f"🎬 Video {i+1}")
         st.write(f"**Pertanyaan:** {r['question']}")
@@ -211,4 +201,5 @@ if st.session_state.page == "result":
     if st.button("Kembali ke Input"):
         st.session_state.page = "input"
         st.session_state.results = []
+        st.session_state.nama = ""
         st.rerun()
