@@ -3,6 +3,7 @@ import tempfile
 import os
 import re
 from transformers import pipeline
+import requests
 
 # -----------------------
 # CONFIG
@@ -30,7 +31,7 @@ CRITERIA_TEXT = (
 )
 
 # -----------------------
-# LOAD WHISPER HF PIPELINE SEKALI
+# LOAD WHISPER PIPELINE SEKALI
 # -----------------------
 @st.cache_resource(show_spinner=True)
 def load_whisper_pipeline():
@@ -46,7 +47,6 @@ if "whisper_pipe" not in st.session_state:
 # -----------------------
 # FUNCTIONS
 # -----------------------
-
 def whisper_transcribe(video_path):
     """Transkripsi video langsung pakai pipeline HuggingFace"""
     result = st.session_state.whisper_pipe(video_path)
@@ -54,7 +54,6 @@ def whisper_transcribe(video_path):
 
 def mistral_lora_api(prompt):
     """Call fine-tuned Mistral model on HuggingFace Inference API."""
-    import requests
     headers = {
         "Authorization": f"Bearer {HF_TOKEN}",
         "Content-Type": "application/json"
