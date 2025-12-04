@@ -40,7 +40,6 @@ def transcribe_via_hf(video_bytes):
     response = requests.post(url, headers=headers, files=files)
     if response.status_code == 200:
         data = response.json()
-        # HF Whisper API kadang return {"text": "..."} atau {"error": "..."}
         return data.get("text", "") or data.get("error", "")
     else:
         return f"ERROR: {response.status_code} - {response.text}"
@@ -52,11 +51,14 @@ def mistral_lora_api(prompt):
     response = requests.post(HF_MISTRAL_MODEL, headers=headers, json=payload)
     try:
         result = response.json()
+        if isinstance(result, list) and len(result) > 0:
+            return result[0].get("generated_text", "")
+        elif isinstance(result, dict):
+            return result.get("generated_text", str(result))
+        else:
+            return str(result)
     except:
         return "ERROR: Response tidak bisa dibaca."
-    if isinstance(result, list):
-        return result[0].get("generated_text", "")
-    return result.get("generated_text", str(result))
 
 def prompt_for_classification(question, answer):
     return (
@@ -72,7 +74,7 @@ def parse_model_output(text):
     score_match = re.search(r"\b([0-5])\b", text)
     score = int(score_match.group(1)) if score_match else None
     reason_match = re.search(r"(ALASAN|REASON)[:\-]\s*(.+)", text, re.IGNORECASE | re.DOTALL)
-    reason = reason_match.group(2).strip() if reason_match else text
+    reason = reason_match.group(2).strip() if reason_match else text.strip()
     return score, reason
 
 # -----------------------
@@ -136,7 +138,7 @@ if st.session_state.page == "input":
             progress.success(f"Video {idx+1} selesai ✔")
 
         st.session_state.page = "result"
-        st.rerun()
+        st.experimental_rerun()
 
 # -----------------------
 # PAGE: RESULT
@@ -167,4 +169,4 @@ if st.session_state.page == "result":
         st.session_state.page = "input"
         st.session_state.results = []
         st.session_state.nama = ""
-        st.rerun()
+        st.experimental_rerun()
