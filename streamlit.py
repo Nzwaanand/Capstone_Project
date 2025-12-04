@@ -3,7 +3,7 @@ import tempfile
 import os
 import re
 import requests
-import whisper 
+import whisper
 
 # -----------------------
 # CONFIG
@@ -36,7 +36,7 @@ CRITERIA_TEXT = (
 # -----------------------
 @st.cache_resource(show_spinner=True)
 def load_whisper_model():
-    return whisper.load_model("medium") 
+    return whisper.load_model("medium")
 
 whisper_model = load_whisper_model()
 
@@ -80,7 +80,6 @@ def prompt_for_classification(question, answer):
         "ALASAN: <teks>\n"
     )
 
-
 def parse_model_output(text):
     """Extract score (0–5) and reason."""
     score = None
@@ -98,10 +97,8 @@ def parse_model_output(text):
 # -----------------------
 if "page" not in st.session_state:
     st.session_state.page = "input"
-
 if "results" not in st.session_state:
     st.session_state.results = []
-
 if "nama" not in st.session_state:
     st.session_state.nama = ""
 
