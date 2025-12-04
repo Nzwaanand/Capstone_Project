@@ -34,10 +34,12 @@ CRITERIA_TEXT = (
 # -----------------------
 @st.cache_resource(show_spinner=True)
 def load_whisper_pipeline():
-    return pipeline(model="NbAiLab/nb-whisper-medium", task="automatic-speech-recognition")
-    
-    if "whisper_pipe" not in st.session_state:
-        st.session_state.whisper_pipe = load_whisper_pipeline()
+    return pipeline(
+        model="NbAiLab/nb-whisper-medium",
+        task="automatic-speech-recognition",  
+        chunk_length_s=30  
+    )
+
 
 # -----------------------
 # FUNCTIONS
