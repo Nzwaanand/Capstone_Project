@@ -2,6 +2,7 @@ import streamlit as st
 import tempfile
 import os
 import re
+from moviepy.editor import AudioFileClip
 from transformers import pipeline
 
 # -----------------------
@@ -27,7 +28,6 @@ CRITERIA_TEXT = (
     "2 - Paham general\n"
     "3 - Pemahaman cukup\n"
     "4 - Menguasai materi\n"
-    "5 - Sangat menguasai\n"
 )
 
 # -----------------------
@@ -42,10 +42,21 @@ whisper_pipe = load_whisper_pipeline()
 # -----------------------
 # FUNCTIONS
 # -----------------------
-def whisper_transcribe(video_path):
-    """Transcribe video langsung pakai HF Whisper pipeline"""
-    result = whisper_pipe(video_path)
-    return result["text"]
+def video_to_audio(video_path):
+    """Konversi video ke WAV sementara untuk Whisper."""
+    tmp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+    clip = AudioFileClip(video_path)
+    clip.write_audiofile(tmp_audio.name, verbose=False, logger=None)
+    clip.close()
+    return tmp_audio.name
+
+def whisper_transcribe(video_path, pipe):
+    audio_path = video_to_audio(video_path)
+    try:
+        result = pipe(audio_path)
+        return result["text"]
+    finally:
+        os.remove(audio_path)
 
 def mistral_lora_api(prompt):
     """Call fine-tuned Mistral model on HuggingFace Inference API."""
