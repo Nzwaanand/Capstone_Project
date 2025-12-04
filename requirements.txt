@@ -1,8 +1,6 @@
-streamlit>=1.24.0
-torch>=2.2.0
-torchaudio>=2.2.0
-whisper @ git+https://github.com/openai/whisper.git
-moviepy>=1.0.3
-requests>=2.31.0
-ffmpeg-python>=0.2.0
+streamlit
 python-dotenv
+mistralai
+ffmpeg-python
+openai-whisper
+requests
