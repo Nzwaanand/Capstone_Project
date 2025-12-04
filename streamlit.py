@@ -2,7 +2,6 @@ import streamlit as st
 import tempfile
 import os
 import re
-from moviepy.editor import AudioFileClip
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from datasets import load_dataset
 
