@@ -36,16 +36,19 @@ CRITERIA_TEXT = (
 def load_whisper_pipeline():
     return pipeline(
         model="NbAiLab/nb-whisper-medium",
-        task="automatic-speech-recognition",  
-        chunk_length_s=30  
+        task="automatic-speech-recognition",
+        chunk_length_s=30
     )
 
+if "whisper_pipe" not in st.session_state:
+    st.session_state.whisper_pipe = load_whisper_pipeline()
 
 # -----------------------
 # FUNCTIONS
 # -----------------------
 
 def whisper_transcribe(video_path):
+    """Transkripsi video langsung pakai pipeline HuggingFace"""
     result = st.session_state.whisper_pipe(video_path)
     return result["text"]
 
