@@ -8,8 +8,8 @@ import re
 st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
 HF_TOKEN = st.secrets["HF_TOKEN"]
-HF_WHISPER_MODEL = "NbAiLab/nb-whisper-medium"
-HF_MISTRAL_MODEL = "https://api-inference.huggingface.co/models/nndayoow/mistral-interview-lora"
+HF_WHISPER_MODEL = "NbAiLab/nb-whisper-medium"  # nama model saja
+HF_MISTRAL_MODEL = "nndayoow/mistral-interview-lora"  # nama model saja
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
@@ -47,7 +47,8 @@ def mistral_lora_api(prompt):
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     payload = {"inputs": prompt, "parameters": {"max_new_tokens": 200}}
     try:
-        response = requests.post(HF_MISTRAL_MODEL, headers=headers, json=payload, timeout=60)
+        response = requests.post(f"https://api-inference.huggingface.co/models/{HF_MISTRAL_MODEL}", 
+                                 headers=headers, json=payload, timeout=60)
         response.raise_for_status()
         result = response.json()
         if isinstance(result, list) and len(result) > 0:
@@ -84,11 +85,11 @@ if "results" not in st.session_state:
     st.session_state.results = []
 if "nama" not in st.session_state:
     st.session_state.nama = ""
-if "processing_done" not in st.session_state:
-    st.session_state.processing_done = False
+if "rerun_done" not in st.session_state:
+    st.session_state.rerun_done = False
 
 # -----------------------
-# HALAMAN INPUT
+# PAGE: INPUT
 # -----------------------
 if st.session_state.page == "input":
     st.title("🎥 AI-Powered Interview Assessment System")
@@ -115,9 +116,8 @@ if st.session_state.page == "input":
         if not error_flag:
             st.session_state.nama = nama
             st.session_state.results = []
-            st.session_state.processing_done = False
-
             progress = st.empty()
+
             for idx, vid in enumerate(uploaded):
                 progress.info(f"Memproses Video {idx+1}...")
                 video_bytes = vid.read()
@@ -137,17 +137,13 @@ if st.session_state.page == "input":
 
                 progress.success(f"Video {idx+1} selesai ✔")
 
-            # tandai proses selesai → otomatis pindah ke halaman hasil
-            st.session_state.processing_done = True
+            st.session_state.page = "result"
+            if not st.session_state.rerun_done:
+                st.session_state.rerun_done = True
+                st.experimental_rerun()
 
 # -----------------------
-# AUTO-PINDAH HALAMAN HASIL
-# -----------------------
-if st.session_state.processing_done:
-    st.session_state.page = "result"
-
-# -----------------------
-# HALAMAN HASIL
+# PAGE: RESULT
 # -----------------------
 if st.session_state.page == "result":
     st.title("📋 Hasil Penilaian Interview")
@@ -175,4 +171,5 @@ if st.session_state.page == "result":
         st.session_state.page = "input"
         st.session_state.results = []
         st.session_state.nama = ""
-        st.session_state.processing_done = False
+        st.session_state.rerun_done = False
+        st.experimental_rerun()
