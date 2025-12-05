@@ -8,8 +8,8 @@ import re
 st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
 HF_TOKEN = st.secrets["HF_TOKEN"]
-HF_WHISPER_MODEL = "NbAiLab/nb-whisper-medium"
-HF_MISTRAL_MODEL = "https://api-inference.huggingface.co/models/nndayoow/mistral-interview-lora"
+HF_WHISPER_MODEL = "api-inference.huggingface.co/models/NbAiLab/nb-whisper-medium"
+HF_MISTRAL_MODEL = "api-inference.huggingface.co/models/nndayoow/mistral-interview-lora"
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
