@@ -2,14 +2,11 @@ import streamlit as st
 import requests
 import re
 
-# -----------------------
-# CONFIG
-# -----------------------
 st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
 HF_TOKEN = st.secrets["HF_TOKEN"]
-HF_WHISPER_MODEL = "NbAiLab/nb-whisper-medium"  # nama model saja
-HF_MISTRAL_MODEL = "nndayoow/mistral-interview-lora"  # nama model saja
+HF_WHISPER_MODEL = "NbAiLab/nb-whisper-medium"
+HF_MISTRAL_MODEL = "nndayoow/mistral-interview-lora"
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
@@ -28,9 +25,7 @@ CRITERIA_TEXT = (
     "4 - Menguasai materi\n"
 )
 
-# -----------------------
-# FUNCTIONS
-# -----------------------
+# --- Functions ---
 def transcribe_via_hf(video_bytes):
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     files = {"file": ("video.mp4", video_bytes)}
@@ -76,22 +71,17 @@ def parse_model_output(text):
     reason = reason_match.group(2).strip() if reason_match else text.strip()
     return score, reason
 
-# -----------------------
-# SESSION STATE INIT
-# -----------------------
+# --- Session State ---
 if "page" not in st.session_state:
     st.session_state.page = "input"
 if "results" not in st.session_state:
     st.session_state.results = []
 if "nama" not in st.session_state:
     st.session_state.nama = ""
-if "rerun_done" not in st.session_state:
-    st.session_state.rerun_done = False
+if "processing_done" not in st.session_state:
+    st.session_state.processing_done = False
 
-# -----------------------
-# PAGE: INPUT
-# -----------------------
-
+# --- PAGE INPUT ---
 if st.session_state.page == "input":
     st.title("🎥 AI-Powered Interview Assessment System")
     st.write("Upload **5 video interview** lalu klik mulai analisis.")
@@ -120,13 +110,30 @@ if st.session_state.page == "input":
             st.session_state.processing_done = True  # Flag untuk pindah ke result
             st.session_state.page = "result"
 
-# -----------------------
-# PAGE: RESULT
-# -----------------------
-if st.session_state.page == "result":
+# --- PAGE RESULT ---
+if st.session_state.processing_done and st.session_state.page == "result":
     st.title("📋 Hasil Penilaian Interview")
     st.write(f"**Nama Pelamar:** {st.session_state.nama}")
 
+    progress = st.empty()
+    for idx, vid in enumerate(uploaded):
+        progress.info(f"Memproses Video {idx+1}...")
+        video_bytes = vid.read()
+        transcript = transcribe_via_hf(video_bytes)
+        prompt = prompt_for_classification(INTERVIEW_QUESTIONS[idx], transcript)
+        raw_output = mistral_lora_api(prompt)
+        score, reason = parse_model_output(raw_output)
+
+        st.session_state.results.append({
+            "question": INTERVIEW_QUESTIONS[idx],
+            "transcript": transcript,
+            "score": score,
+            "reason": reason,
+            "raw_model": raw_output
+        })
+        progress.success(f"Video {idx+1} selesai ✔")
+
+    # --- Tampilkan hasil ---
     valid_scores = [r["score"] for r in st.session_state.results if r["score"] is not None]
     if len(valid_scores) == 5:
         final_score = sum(valid_scores) / 5
@@ -147,8 +154,6 @@ if st.session_state.page == "result":
 
     if st.button("Kembali ke Input"):
         st.session_state.page = "input"
+        st.session_state.processing_done = False
         st.session_state.results = []
         st.session_state.nama = ""
-        st.session_state.rerun_done = False
-        st.experimental_rerun()
-
