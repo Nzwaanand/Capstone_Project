@@ -8,8 +8,8 @@ st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
 # Ganti WHISPER kamu karena yg lama 410 Gone
-HF_WHISPER_MODEL = "openai/whisper-base"   # <— Model aktif
-HF_MISTRAL_MODEL = "nndayoow/mistral-interview-lora"  # pastikan model public
+HF_WHISPER_MODEL = "https://huggingface.co/openai/whisper-base"   # <— Model aktif
+HF_MISTRAL_MODEL = "https://huggingface.co/nndayoow/mistral-interview-lora"  # pastikan model public
 
 # ======== Interview Questions ========
 INTERVIEW_QUESTIONS = [
