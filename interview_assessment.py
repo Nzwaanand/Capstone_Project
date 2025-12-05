@@ -8,8 +8,8 @@ import re
 st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
 HF_TOKEN = st.secrets["HF_TOKEN"]
-HF_WHISPER_MODEL = "NbAiLab/nb-whisper-medium"  
-HF_MISTRAL_MODEL = "nndayoow/mistral-interview-lora"  
+HF_WHISPER_MODEL = "NbAiLab/nb-whisper-medium"  # nama model saja
+HF_MISTRAL_MODEL = "nndayoow/mistral-interview-lora"  # nama model saja
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
@@ -138,7 +138,10 @@ if st.session_state.page == "input":
                 progress.success(f"Video {idx+1} selesai ✔")
 
             st.session_state.page = "result"
-        
+            if not st.session_state.rerun_done:
+                st.session_state.rerun_done = True
+                st.experimental_rerun()
+
 # -----------------------
 # PAGE: RESULT
 # -----------------------
