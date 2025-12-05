@@ -9,7 +9,7 @@ st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
 HF_TOKEN = st.secrets["HF_TOKEN"]
 HF_WHISPER_MODEL = "NbAiLab/nb-whisper-medium"
-HF_MISTRAL_MODEL = "nndayoow/mistral-interview-lora"
+HF_MISTRAL_MODEL = "https://api-inference.huggingface.co/models/nndayoow/mistral-interview-lora"
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
@@ -84,11 +84,11 @@ if "results" not in st.session_state:
     st.session_state.results = []
 if "nama" not in st.session_state:
     st.session_state.nama = ""
-if "rerun_done" not in st.session_state:
-    st.session_state.rerun_done = False
+if "processing_done" not in st.session_state:
+    st.session_state.processing_done = False
 
 # -----------------------
-# PAGE: INPUT
+# HALAMAN INPUT
 # -----------------------
 if st.session_state.page == "input":
     st.title("🎥 AI-Powered Interview Assessment System")
@@ -115,8 +115,9 @@ if st.session_state.page == "input":
         if not error_flag:
             st.session_state.nama = nama
             st.session_state.results = []
-            progress = st.empty()
+            st.session_state.processing_done = False
 
+            progress = st.empty()
             for idx, vid in enumerate(uploaded):
                 progress.info(f"Memproses Video {idx+1}...")
                 video_bytes = vid.read()
@@ -136,13 +137,17 @@ if st.session_state.page == "input":
 
                 progress.success(f"Video {idx+1} selesai ✔")
 
-            st.session_state.page = "result"
-            if not st.session_state.rerun_done:
-                st.session_state.rerun_done = True
-                st.experimental_rerun()
+            # tandai proses selesai → otomatis pindah ke halaman hasil
+            st.session_state.processing_done = True
 
 # -----------------------
-# PAGE: RESULT
+# AUTO-PINDAH HALAMAN HASIL
+# -----------------------
+if st.session_state.processing_done:
+    st.session_state.page = "result"
+
+# -----------------------
+# HALAMAN HASIL
 # -----------------------
 if st.session_state.page == "result":
     st.title("📋 Hasil Penilaian Interview")
@@ -170,6 +175,4 @@ if st.session_state.page == "result":
         st.session_state.page = "input"
         st.session_state.results = []
         st.session_state.nama = ""
-        st.session_state.rerun_done = False
-        st.experimental_rerun()
-
+        st.session_state.processing_done = False
