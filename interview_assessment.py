@@ -9,7 +9,7 @@ st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
 HF_TOKEN = st.secrets["HF_TOKEN"]
 HF_WHISPER_MODEL = "NbAiLab/nb-whisper-medium"
-HF_MISTRAL_MODEL = "https://router.huggingface.co/models/nndayoow/mistral-interview-lora"
+HF_MISTRAL_MODEL = "https://api-inference.huggingface.co/models/nndayoow/mistral-interview-lora"
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
@@ -35,18 +35,20 @@ def transcribe_via_hf(video_bytes):
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     files = {"file": ("video.mp4", video_bytes)}
     url = f"https://api-inference.huggingface.co/models/{HF_WHISPER_MODEL}"
-    response = requests.post(url, headers=headers, files=files)
-    if response.status_code == 200:
+    try:
+        response = requests.post(url, headers=headers, files=files, timeout=60)
+        response.raise_for_status()
         data = response.json()
         return data.get("text", "") or data.get("error", "")
-    else:
-        return f"ERROR: {response.status_code} - {response.text}"
+    except requests.exceptions.RequestException as e:
+        return f"ERROR: {str(e)}"
 
 def mistral_lora_api(prompt):
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     payload = {"inputs": prompt, "parameters": {"max_new_tokens": 200}}
     try:
-        response = requests.post(HF_MISTRAL_MODEL, headers=headers, json=payload)
+        response = requests.post(HF_MISTRAL_MODEL, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
         result = response.json()
         if isinstance(result, list) and len(result) > 0:
             return result[0].get("generated_text", "")
@@ -54,8 +56,8 @@ def mistral_lora_api(prompt):
             return result.get("generated_text", str(result))
         else:
             return str(result)
-    except:
-        return "ERROR: Response tidak bisa dibaca."
+    except requests.exceptions.RequestException as e:
+        return f"ERROR: {str(e)}"
 
 def prompt_for_classification(question, answer):
     return (
@@ -82,6 +84,8 @@ if "results" not in st.session_state:
     st.session_state.results = []
 if "nama" not in st.session_state:
     st.session_state.nama = ""
+if "rerun_done" not in st.session_state:
+    st.session_state.rerun_done = False
 
 # -----------------------
 # PAGE: INPUT
@@ -133,7 +137,9 @@ if st.session_state.page == "input":
                 progress.success(f"Video {idx+1} selesai ✔")
 
             st.session_state.page = "result"
-            st.experimental_rerun()
+            if not st.session_state.rerun_done:
+                st.session_state.rerun_done = True
+                st.experimental_rerun()
 
 # -----------------------
 # PAGE: RESULT
@@ -164,4 +170,5 @@ if st.session_state.page == "result":
         st.session_state.page = "input"
         st.session_state.results = []
         st.session_state.nama = ""
+        st.session_state.rerun_done = False
         st.experimental_rerun()
