@@ -31,18 +31,27 @@ CRITERIA_TEXT = (
 
 # ======== Functions ========
 def transcribe_via_hf(video_bytes):
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-    files = {"file": ("video.mp4", video_bytes)}
     url = f"https://api-inference.huggingface.co/models/{HF_WHISPER_MODEL}"
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}"
+    }
+
+    files = {"file": ("audio.mp4", video_bytes, "video/mp4")}
+
     try:
         response = requests.post(
-            url, headers=headers, files=files, params={"wait_for_model": "true"}, timeout=300
+            url,
+            headers=headers,
+            files=files,
+            params={"wait_for_model": "true"},
+            timeout=300
         )
+        print(response.text)
         response.raise_for_status()
         data = response.json()
-        return data.get("text", "") or data.get("error", "")
+        return data.get("text", "") or str(data)
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        return f"ERROR TRANSCRIBE: {str(e)}"
 
 def phi3_api(prompt):
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
