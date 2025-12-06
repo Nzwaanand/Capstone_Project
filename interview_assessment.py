@@ -9,7 +9,7 @@ st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 # ======== Your HF TOKEN ========
 HF_TOKEN = st.secrets["HF_TOKEN"]
 HF_PHI3_MODEL = "microsoft/Phi-3-mini-4k-instruct"
-HF_WHISPER_MODEL = "openai/whisper-large-v3" 
+HF_WHISPER_MODEL = "openai/whisper-small" 
 
 # ======== Interview Questions ========
 INTERVIEW_QUESTIONS = [
@@ -35,7 +35,9 @@ def transcribe_via_hf(video_bytes):
     files = {"file": ("video.mp4", video_bytes)}
     url = f"https://api-inference.huggingface.co/models/{HF_WHISPER_MODEL}"
     try:
-        response = requests.post(url, headers=headers, files=files, timeout=300)
+        response = requests.post(
+            url, headers=headers, files=files, params={"wait_for_model": "true"}, timeout=300
+        )
         response.raise_for_status()
         data = response.json()
         return data.get("text", "") or data.get("error", "")
@@ -67,7 +69,7 @@ def phi3_api(prompt):
 
 def prompt_for_classification(question, answer):
     return (
-        f"Anda adalah HRD profesional. Nilailah jawaban kandidat dengan skala 0–5.\n\n"
+        f"Anda adalah HRD profesional. Nilailah jawaban kandidat dengan skala 0–4.\n\n"
         f"{CRITERIA_TEXT}\n\n"
         f"Pertanyaan: {question}\n"
         f"Jawaban Kandidat: {answer}\n\n"
@@ -76,12 +78,16 @@ def prompt_for_classification(question, answer):
 
 
 def parse_model_output(text):
-    score_match = re.search(r"\b([0-5])\b", text)
-    score = int(score_match.group(1)) if score_match else None
-    reason_match = re.search(r"(ALASAN|REASON)[:\-]\s*(.+)", text, re.IGNORECASE | re.DOTALL)
-    reason = reason_match.group(2).strip() if reason_match else text
-    return score, reason
+    score_match = re.search(r"KLASIFIKASI[:\- ]*([0-4])", text, re.IGNORECASE)
+    if not score_match:
+        score_match = re.search(r"\b([0-5])\b", text)  
 
+    score = int(score_match.group(1)) if score_match else None
+
+    reason_match = re.search(r"ALASAN[:\-]\s*(.+)", text, re.IGNORECASE | re.DOTALL)
+    reason = reason_match.group(1).strip() if reason_match else text  
+
+    return score, reason
 
 # ======== Session State Init ========
 for key, default in {"page":"input","results":[],"nama":"","processing_done":False}.items():
@@ -145,8 +151,8 @@ if st.session_state.processing_done and st.session_state.page == "result":
 
     #======== Show Result ========
     scores = [r["score"] for r in st.session_state.results if r["score"] is not None]
-    if len(scores) == 4:
-        final_score = sum(scores)/4
+    if len(scores) == 5:
+        final_score = sum(scores)/5
         st.markdown(f"### ⭐ Skor Akhir: **{final_score:.2f} / 4**")
     else:
         st.error("Skor tidak semua berhasil diproses. Cek raw output model.")
