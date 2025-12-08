@@ -10,7 +10,7 @@ st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
 # Model yang benar & aman untuk CPU
 HF_PHI3_MODEL = "microsoft/Phi-3.5-mini-instruct"
-HF_WHISPER_MODEL = "openai/whisper-large-v3-turbo"
+HF_WHISPER_MODEL = "openai/whisper-large-v3-turbo"   # tersedia di HF
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
