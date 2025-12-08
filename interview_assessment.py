@@ -1,16 +1,20 @@
 import streamlit as st
+import requests
 import re
 import tempfile
-import os
-from transformers import pipeline
 import subprocess
+import os
 
 # ========================= CONFIG =========================
 st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
-# Model yang benar & aman untuk CPU
-HF_PHI3_MODEL = "microsoft/Phi-3.5-mini-instruct"
-HF_WHISPER_MODEL = "openai/whisper-medium"
+HF_TOKEN = st.secrets["HF_TOKEN"]
+
+# Endpoint HF API (Ganti sesuai endpoint kamu)
+HF_WHISPER_API = "https://api-inference.huggingface.co/models/openai/whisper-tiny"
+HF_PHI3_API = "https://api-inference.huggingface.co/models/microsoft/Phi-3.5-mini-instruct"
+
+HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 INTERVIEW_QUESTIONS = [
     "Can you share any specific challenges you faced while working on certification and how you overcame them?",
@@ -29,87 +33,70 @@ CRITERIA = (
     "4 - Deep understanding with inovative solution\n"
 )
 
-# ========================= SAFE MODEL LOADING =========================
-@st.cache_resource
-def get_asr_pipeline():
+# ========================= HF API CALLS =========================
+def hf_asr_api(audio_bytes):
+    """Kirim audio ke HF Whisper API"""
     try:
-        return pipeline(
-            task="automatic-speech-recognition",
-            model=HF_WHISPER_MODEL
+        response = requests.post(
+            HF_WHISPER_API,
+            headers=HEADERS,
+            data=audio_bytes
         )
+        result = response.json()
+        return result.get("text", "TRANSCRIBE ERROR: No text returned")
     except Exception as e:
-        st.error(f"Gagal memuat model Whisper: {e}")
-        return None
+        return f"TRANSCRIBE ERROR: {e}"
 
 
-@st.cache_resource
-def get_llm_pipeline():
+def hf_llm_api(prompt):
+    """Kirim prompt ke Phi-3 API"""
     try:
-        return pipeline(
-            task="text-generation",
-            model=HF_PHI3_MODEL
-        )
+        data = {"inputs": prompt, "parameters": {"max_new_tokens": 200}}
+        response = requests.post(HF_PHI3_API, headers=HEADERS, json=data)
+        result = response.json()
+
+        if isinstance(result, list):
+            return result[0].get("generated_text", "")
+        if "generated_text" in result:
+            return result["generated_text"]
+        return str(result)
     except Exception as e:
-        st.error(f"Gagal memuat model Phi-3: {e}")
-        return None
+        return f"LLM ERROR: {e}"
 
 
 # ========================= FUNCTIONS =========================
-def transcribe_via_hf(video_bytes):
-    asr = get_asr_pipeline()
-    if asr is None:
-        return "ERROR: Model Whisper gagal dimuat."
+def convert_video_to_audio(video_bytes):
+    """Convert MP4 → WAV 16kHz mono via ffmpeg"""
+    try:
+        subprocess.run(["ffmpeg", "-version"], check=True,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except Exception:
+        return None, "FFMPEG NOT INSTALLED"
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_in:
         tmp_in.write(video_bytes)
-        tmp_in.flush()
         tmp_in_path = tmp_in.name
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_out:
         tmp_out_path = tmp_out.name
 
-    # Cek ffmpeg
-    try:
-        subprocess.run(["ffmpeg", "-version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except Exception:
-        return "ERROR: ffmpeg tidak terpasang di server."
-
-    # Convert ke WAV mono 16k
     try:
         subprocess.run(
             ["ffmpeg", "-y", "-i", tmp_in_path, "-ac", "1", "-ar", "16000", tmp_out_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True
         )
     except Exception as e:
-        return f"ERROR FFMPEG: {e}"
+        return None, f"FFMPEG ERROR: {e}"
 
-    # Transcribe
-    try:
-        result = asr(tmp_out_path)
-        if isinstance(result, dict):
-            return result.get("text", "")
-        return str(result)
-    except Exception as e:
-        return f"ERROR TRANSCRIBE: {e}"
-    finally:
-        try: os.remove(tmp_in_path)
-        except: pass
-        try: os.remove(tmp_out_path)
-        except: pass
+    with open(tmp_out_path, "rb") as f:
+        audio_bytes = f.read()
 
+    os.remove(tmp_in_path)
+    os.remove(tmp_out_path)
 
-def phi3_api(prompt):
-    llm = get_llm_pipeline()
-    if llm is None:
-        return "ERROR: Model Phi-3 gagal dimuat."
-
-    try:
-        out = llm(prompt, max_new_tokens=200, do_sample=False)
-        if isinstance(out, list) and len(out) > 0:
-            return out[0]["generated_text"]
-        return str(out)
-    except Exception as e:
-        return f"ERROR LLM: {e}"
+    return audio_bytes, None
 
 
 def prompt_for_classification(question, answer):
@@ -134,11 +121,9 @@ def prompt_for_classification(question, answer):
 
 def parse_model_output(text):
     score_match = re.search(r"KLASIFIKASI[:\- ]*([0-4])", text, re.IGNORECASE)
-    if not score_match:
-        score_match = re.search(r"\b([0-4])\b", text)
     score = int(score_match.group(1)) if score_match else None
 
-    reason_match = re.search(r"ALASAN[:\-]\s*(.+)", text, re.IGNORECASE | re.DOTALL)
+    reason_match = re.search(r"ALASAN[:\- ]*(.+)", text, re.IGNORECASE | re.DOTALL)
     reason = reason_match.group(1).strip() if reason_match else text
 
     return score, reason
@@ -183,7 +168,7 @@ if st.session_state.page == "input":
 
 
 # ========================= PAGE RESULT =========================
-if st.session_state.processing_done and st.session_state.page == "result":
+if st.session_state.page == "result":
     st.title("📋 Hasil Penilaian Interview")
     st.write(f"**Nama Pelamar:** {st.session_state.nama}")
 
@@ -193,10 +178,24 @@ if st.session_state.processing_done and st.session_state.page == "result":
         for idx, vid in enumerate(st.session_state.uploaded):
             progress.info(f"Memproses Video {idx+1}...")
 
-            bytes_data = vid.read()
-            transcript = transcribe_via_hf(bytes_data)
+            # Convert ke audio
+            audio_bytes, err = convert_video_to_audio(vid.read())
+            if err:
+                st.session_state.results.append({
+                    "question": INTERVIEW_QUESTIONS[idx],
+                    "transcript": err,
+                    "score": None,
+                    "reason": err,
+                    "raw_model": err
+                })
+                continue
+
+            # Transcribe
+            transcript = hf_asr_api(audio_bytes)
+
+            # LLM Classification
             prompt = prompt_for_classification(INTERVIEW_QUESTIONS[idx], transcript)
-            raw_output = phi3_api(prompt)
+            raw_output = hf_llm_api(prompt)
             score, reason = parse_model_output(raw_output)
 
             st.session_state.results.append({
@@ -209,15 +208,17 @@ if st.session_state.processing_done and st.session_state.page == "result":
 
             progress.success(f"Video {idx+1} selesai ✔")
 
+    # Final Score
     scores = [r["score"] for r in st.session_state.results if r["score"] is not None]
     if len(scores) == 5:
         final_score = sum(scores) / 5
         st.markdown(f"### ⭐ Skor Akhir: **{final_score:.2f} / 4**")
     else:
-        st.error("Skor tidak semua berhasil diproses. Cek raw output model.")
+        st.error("Tidak semua skor berhasil diproses.")
 
     st.markdown("---")
 
+    # Detail per video
     for i, r in enumerate(st.session_state.results):
         st.subheader(f"🎬 Video {i+1}")
         st.write(f"**Pertanyaan:** {r['question']}")
@@ -236,4 +237,3 @@ if st.session_state.processing_done and st.session_state.page == "result":
         st.session_state.results = []
         st.session_state.nama = ""
         st.rerun()
-
