@@ -8,7 +8,7 @@ import subprocess
 # ========================= CONFIG =========================
 st.set_page_config(page_title="AI Interview Assessment", layout="wide")
 
-HF_PHI3_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+HF_PHI3_MODEL = "microsoft/Phi-3-mini-4k-instruct"
 HF_WHISPER_MODEL = "openai/whisper-large-v3"
 
 INTERVIEW_QUESTIONS = [
@@ -236,3 +236,4 @@ if st.session_state.processing_done and st.session_state.page == "result":
         st.session_state.results = []
         st.session_state.nama = ""
         st.rerun()
+
